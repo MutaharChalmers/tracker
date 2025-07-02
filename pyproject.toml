@@ -1,0 +1,35 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tracker"
+version = "0.0.1"
+description = "Tropical cyclone track simulator"
+authors = [
+           { name = "Mutahar Chalmers", email = "mutahar.chalmers@gmail.com" },
+]
+license = { file = "LICENSE" }
+readme = "README.md"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering",
+]
+requires-python = ">=3.11"
+dependencies = [ "numpy>=1.26.4", "scipy>=1.13", "pandas>=2.0", "xarray>=2024.07.0",
+                 "geopandas>=1.1", "matplotlib>=3.6","scikit-learn>=1.7", "tqdm>=4.66",
+		 "kdetools>=0.2.2", "quadgrid>=0.1.4",
+]
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+	"/data/ibtracs/*",
+	"/data/ersstv5/*",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/MutaharChalmers/tracker"
