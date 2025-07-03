@@ -60,7 +60,7 @@ class Tracker():
         self.cwd = Path(__file__).parent.resolve()
 
         # Load Natural Earth land shapefile which comes with the package
-        self.land = gpd.read_file(self.cwd/'../data/ne_10m_land/ne_10m_land.shp')
+        self.land = gpd.read_file(self.cwd/'data/ne_10m_land/ne_10m_land.shp')
 
     def get_ibtracs(self, basin, agency, version='v04r01', outpath=None, url=None):
         """Function to retrieve and preprocess raw IBTrACS track data.
@@ -101,7 +101,7 @@ class Tracker():
         # Save to disk
         fname = f'ibtracs.{basin.upper()}.{agency}.{version}.csv'
         if outpath is None:
-            outpath = (self.cwd / '../data/ibtracs/').resolve()
+            outpath = (self.cwd / 'data/ibtracs/').resolve()
         ibtracs.to_csv(f'{outpath}/{fname}', index=False)
         print(f'Data saved to {outpath}')
 
@@ -110,7 +110,7 @@ class Tracker():
         """
         fname = f'ibtracs.{basin.upper()}.{agency}.{version}.csv'
         if inpath is None:
-            inpath = (self.cwd / '../data/ibtracs').resolve()
+            inpath = (self.cwd / 'data/ibtracs').resolve()
         self.ibtracs[basin.upper()] = pd.read_csv(f'{inpath}/{fname}', parse_dates=['ISO_TIME'])
 
     def get_roni(self, outpath=None):
@@ -124,7 +124,7 @@ class Tracker():
         roni = roni_raw.drop('SEAS', axis=1).rename(columns={'YR':'year','ANOM':'roni'}
                                                     )[['year','month','roni']]
         if outpath is None:
-            outpath = (self.cwd / '../data/enso/').resolve()
+            outpath = (self.cwd / 'data/enso/').resolve()
         roni.to_csv(f'{outpath}/roni.csv', index=False)
         self.roni = roni
 
@@ -132,7 +132,7 @@ class Tracker():
         """Load processed Relative Oceanic Nino Index (RONI) data from disk.
         """
         if inpath is None:
-            inpath = (self.cwd / '../data/enso').resolve()
+            inpath = (self.cwd / 'data/enso').resolve()
         if fname is None:
             fname = 'roni.csv'
         self.roni = pd.read_csv(f'{inpath}/{fname}')
@@ -147,7 +147,7 @@ class Tracker():
         oni = oni_raw.rename_axis('year').rename_axis('month', axis=1
                                                       ).stack().rename('oni').reset_index()
         if outpath is None:
-            outpath = (self.cwd / '../data/enso/').resolve()
+            outpath = (self.cwd / 'data/enso/').resolve()
         oni.to_csv(f'{outpath}/oni.csv', index=False)
         self.oni = oni
 
@@ -155,7 +155,7 @@ class Tracker():
         """Load processed Oceanic Nino Index (ONI) data from disk.
         """
         if inpath is None:
-            inpath = (self.cwd / '../data/enso').resolve()
+            inpath = (self.cwd / 'data/enso').resolve()
         if fname is None:
             fname = 'oni.csv'
         self.oni = pd.read_csv(f'{inpath}/{fname}')
@@ -177,7 +177,7 @@ class Tracker():
         """
 
         if inpath is None:
-            inpath = (self.cwd / '../data/ersstv5').resolve()
+            inpath = (self.cwd / 'data/ersstv5').resolve()
 
         ersstv5 = ERSSTv5()
         self.ssts = ersstv5.load(inpath, year_range)
