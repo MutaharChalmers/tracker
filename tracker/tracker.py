@@ -36,19 +36,20 @@ class Tracker():
                          'REUNION','BOM','NADI','WELLINGTON']
         self.agency_map = {'NA': 'USA', 'WP': 'TOKYO', 'NI': 'NEWDELHI',
                            'SI': 'BOM', 'SP': 'BOM', 'EP': 'USA', 'SA': 'WMO'}
-        self.basin_bounds = {'NA': {'lon_bnds': [-110, 10], 'lat_bnds': [5, 60]},
-                             'WP': {'lon_bnds': [80, 180], 'lat_bnds': [5, 60]},
-                             'NI': {'lon_bnds': [45, 160], 'lat_bnds': [0, 40]},
-                             'SI': {'lon_bnds': [25, 180], 'lat_bnds': [0, -50]},
-                             'EP': {'lon_bnds': [-180, -50], 'lat_bnds': [5, 50]},
-                             'SP': {'lon_bnds': [100, 180], 'lat_bnds': [-5, -55]},
-                             'SA': {'lon_bnds': [-50, -30], 'lat_bnds': [-20, -40]},}
+        self.basin_bounds = {'NA': {'lon_bnds': [-110, 10], 'lat_bnds': [0, 60]},
+                             'WP': {'lon_bnds': [80, 180], 'lat_bnds': [0, 60]},
+                             'NI': {'lon_bnds': [45, 160], 'lat_bnds': [0, 60]},
+                             'SI': {'lon_bnds': [25, 180], 'lat_bnds': [0, -60]},
+                             'EP': {'lon_bnds': [-180, -50], 'lat_bnds': [0, 60]},
+                             'SP': {'lon_bnds': [100, 180], 'lat_bnds': [0, -60]},
+                             'SA': {'lon_bnds': [-50, -30], 'lat_bnds': [0, -60]}}
+        self.basin = None
 
         # Initialise the global grid and define BallTree for fast lookup
         urg = qg.QuadGrid(urg_res)
-        urg_pd = urg.to_pandas().reset_index().sort_values('qid')
-        self.qids = urg_pd['qid'].values
-        self.urg_btree = BallTree(np.deg2rad(urg_pd[['lat','lon']]), metric='haversine')
+        self.urg_gdf = urg.to_geopandas()
+        self.qids = self.urg_gdf['qid'].values
+        self.urg_btree = BallTree(np.deg2rad(self.urg_gdf[['lat','lon']]), metric='haversine')
         self.urg_res = urg_res
 
         # IBTrACS preparation
@@ -256,13 +257,15 @@ class Tracker():
         X['sst'] += np.random.normal(0, 0.0001, size=X.shape[0])
         return X
 
-    def fit(self, X, bw_method='silverman', k=9, s=200, min_recs=50, wts=True):
+    def fit(self, X, basin, bw_method='silverman', k=9, s=200, wts=True, min_recs=200):
         """Fit KDE autoregression models for all cells in a basin.
 
         Parameters
         ----------
             X : DataFrame
                 Design matrix with all features.
+            basin : str
+                Basin of design matrix. Used for tracking which model is which.
             bw_method : str, optional
                 Bandwidth method used for KDE fitting. Options are 'silverman',
                 'scott' and 'cv'.
@@ -273,18 +276,19 @@ class Tracker():
             s : float, optional
                 Standard deviation of Gaussian weight kernel for neighbourhood.
                 Defaults to 200 km.
-            min_recs : int, optional
-                Minimum number of records to fit a model. Defaults to 50.
             wts : bool, optional
                 Weight data by distance from qid centroid. Defaults to True.
+            min_recs : int, optional
+                Minimum number of records to fit a model. Defaults to 50.
 
         Returns
         -------
             models : dict
-                Dictionary of fitted KDE models.
+                Dictionary of fitted KDE models indexed by qid.
         """
 
         self.models, self.missing = {}, []
+        self.basin = basin.upper()
 
         # Array of all qids in the design matrix
         qids = qg.lls2qids(X['LON'].values, X['LAT'].values, self.urg_res)
@@ -316,7 +320,7 @@ class Tracker():
 
         return self.models
 
-    def simulate(self, lon0, lat0, pres0, lon1, lat1, pres1, enso, ssts, m,
+    def simulate(self, lon0, lat0, pres0, lon1, lat1, pres1, enso, ssts, m=100,
                  n=320, end_pres=1010):
         """Simulate ensembles of stochastic tracks.
 
@@ -340,8 +344,8 @@ class Tracker():
             ssts : DataArray
                 2D DataArray of SSTs with dimensions longitude and latitude,
                 consistent with the month the TC is being simulated in.
-            m : int
-                Number of ensemble members to simulate.
+            m : int, optional
+                Number of ensemble members to simulate. Defaults to 100.
             n : int, optional
                 Maximum number of 3-hour steps. Defaults to 320 (40 days).
             end_pres : float, optional
@@ -452,18 +456,20 @@ class Tracker():
                                   enso, ssts, m, n, end_pres)
         return tracks_df
 
-    def plot_missing_qids(self, figsize=(8,6)):
-        """Plot all qids for which no models have been fitted because
-        insufficient data is available.
+    def plot_grid(self, figsize=(12,6)):
+        """Plot all grid cells for which models have been fitted in the current basin.
         """
 
         fig, ax = plt.subplots(1, 1, figsize=figsize)
-        self.land.plot(ax=ax, color='0.5')
-        ax.scatter(*qg.qids2lls(self.missing, self.urg_res), s=3, color='r')
+        self.land.plot(ax=ax, color='0.5', zorder=-4)
+        self.urg_gdf[self.urg_gdf['qid'].isin(self.models)].boundary.plot(ax=ax, color='g', lw=1)
+        self.urg_gdf[self.urg_gdf['qid'].isin(self.missing)].boundary.plot(ax=ax, color='r', lw=1, zorder=-3)
+        ax.set_xlim(self.basin_bounds[self.basin.upper()]['lon_bnds'])
+        ax.set_ylim(self.basin_bounds[self.basin.upper()]['lat_bnds'])
         ax.axhline(0, lw=0.25, color='0.5')
         return fig
 
-    def plot_tracks(self, tracks_df, basin, density=True, ax=None, figsize=(18,9)):
+    def plot_tracks(self, tracks_df, basin, sid=None, density=True, ax=None, figsize=(12,6)):
         """Visualise tracks and track density.
         """
 
@@ -476,13 +482,26 @@ class Tracker():
 
         self.land.plot(ax=ax, lw=1, color='0.5')
         for i in range(m):
-            tracks_df.loc[i].plot(x='LON', y='LAT', color='k', lw=0.25, legend=False, ax=ax)
+            tracks_df.loc[i].plot(x='LON', y='LAT', color='k', lw=0.25, alpha=0.5, legend=False, ax=ax)
             tracks_df.loc[i]['PRES'].plot(ax=ax2, color='0.25', lw=0.25, alpha=0.5)
 
-        #tr.ibtracs['NA'][tr.ibtracs['NA']['SID']==sid].plot(x='LON', y='LAT', color='r', lw=2, legend=False, ax=ax)
+        # Add historic track if requested
+        if sid is not None:
+            agency = self.agency_map[basin.upper()]
+            basin_df = self.ibtracs[basin.upper()]
+            basin_df[basin_df['SID']==sid].plot(x='LON', y='LAT', color='r', lw=2, legend=False, ax=ax)
+            ax2.plot(basin_df[basin_df['SID']==sid][f'{agency}_PRES'].values, color='r', lw=2)
+
+        # Add density plot if requested
+        if density:
+            k = kt.gaussian_kde(tracks_df[['LON','LAT']].values.T, bw_method='silverman')
+            xx, yy = np.meshgrid(np.arange(*self.basin_bounds[basin]['lon_bnds'], 0.5),
+                                 np.arange(*self.basin_bounds[basin]['lat_bnds'], 0.5))
+            z = k(np.vstack([xx.ravel(), yy.ravel()]))
+            ax.pcolormesh(xx, yy, z.reshape(xx.shape), shading='auto', cmap=plt.cm.Blues, zorder=-3)
+
         ax.axhline(0, lw=0.25, color='0.5')
         ax.set_xlim(self.basin_bounds[basin.upper()]['lon_bnds'])
         ax.set_ylim(self.basin_bounds[basin.upper()]['lat_bnds'])
         ax2.set_xticklabels([]); ax2.set_ylabel('Pressure'); ax2.set_ylim((850,1020)); ax2.grid(lw=0.1);
-
-        return None
+        return fig
