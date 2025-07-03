@@ -6,7 +6,7 @@ Some additional features:
 - Includes a monthly ENSO feature as a predictor; either ONI or RONI, downloaded from NOAA, can be used
 
 Having ENSO and SST as predictors allows some interesting experiments to be performed:
-- simple counterfactual analysis - re-run ensembles historical years under different ENSO or SST states
+- simple counterfactual analysis - re-run ensembles for historical years under different ENSO or SST states
 - stochastic set generation - when combined with a TC genesis model, this track model can be used to generate a stochastic track set. A future refinement could be to add on a simple wind field model, based on the modelled central pressure
 - seasonal forecast stochastic set - when combined with a genesis forecast model and seasonal forecasts of SSTs, the model can be used to generate a dynamic stochastic set, conditional on the forecast SSTs, turning predicted basin counts into landfalling frequencies
 
